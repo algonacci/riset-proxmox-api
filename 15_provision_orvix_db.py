@@ -30,7 +30,7 @@ STORAGE = "local-lvm"
 # Dari 14_capacity_report.py: node 4 core / 31,2 GiB, dua VM running memakai
 # 25,5 GiB. Sisa ~5,7 GiB, dikurangi overhead PVE. 4 GiB adalah yang bisa
 # diambil tanpa membuat node kehabisan.
-VM_NAME = "orvix-db"
+VM_NAME = "orvix-fadil"
 CORES = 2          # overcommit 8 -> 10 vCPU di atas 4 core = 2,5x
 MEMORY_MB = 4096
 DISK_GB = 80       # template 10 GiB, jadi tambah 70
