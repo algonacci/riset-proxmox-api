@@ -1,4 +1,4 @@
-"""Provision `orvix-db` — VM ketiga, khusus tiga engine database OMD.
+"""Provision `orvix-db` - VM ketiga, khusus tiga engine database OMD.
 
 Beda dari 13_provision_instance.py:
   - spesifikasi diambil dari pengukuran kapasitas, bukan default template
@@ -131,7 +131,15 @@ with httpx.Client(verify=False, timeout=60, headers=HEADERS) as client:
     wait_task(client, response.json()["data"])
     print("      Clone selesai")
 
-    print("\n[2/6] Konfigurasi CPU, RAM, cloud-init...")
+    print("[2/6] Resize disk...")
+    response = client.put(
+        f"{PROXMOX_URL}/api2/json/nodes/{NODE}/qemu/{vmid}/resize",
+        data={"disk": DISK_KEY, "size": f"+{DISK_GB - TEMPLATE_DISK_GB}G"},
+    )
+    response.raise_for_status()
+    print(f"      {DISK_KEY} -> {DISK_GB} GiB")
+
+    print("\n[3/6] Konfigurasi CPU, RAM, cloud-init...")
     response = client.put(
         f"{PROXMOX_URL}/api2/json/nodes/{NODE}/qemu/{vmid}/config",
         data={
@@ -142,19 +150,21 @@ with httpx.Client(verify=False, timeout=60, headers=HEADERS) as client:
             "ipconfig0": "ip=dhcp",
             "agent": "enabled=1",
             "onboot": 1,
-            "description": "OMD shared database host — MySQL, MariaDB, PostgreSQL. Closed beta.",
+            "description": "OMD shared database host - MySQL, MariaDB, PostgreSQL. Closed beta.",
         },
     )
     response.raise_for_status()
-    print("      Konfigurasi selesai")
-
-    print(f"\n[3/6] Resize {DISK_KEY} ke {DISK_GB} GiB...")
-    response = client.put(
-        f"{PROXMOX_URL}/api2/json/nodes/{NODE}/qemu/{vmid}/resize",
-        data={"disk": DISK_KEY, "size": f"+{DISK_GB - TEMPLATE_DISK_GB}G"},
+    # Verifikasi password beneran tersimpan
+    config_check = client.get(
+        f"{PROXMOX_URL}/api2/json/nodes/{NODE}/qemu/{vmid}/config"
     )
-    response.raise_for_status()
-    print("      Resize selesai")
+    config_check.raise_for_status()
+    saved_password = config_check.json()["data"].get("cipassword")
+    if saved_password == password:
+        print("      Password terverifikasi di konfigurasi VM")
+    else:
+        print(f"      WARNING: password tidak cocok! (saved={saved_password})")
+    print("      Konfigurasi selesai")
 
     print("\n[4/6] Start VM...")
     response = client.post(f"{PROXMOX_URL}/api2/json/nodes/{NODE}/qemu/{vmid}/status/start")
